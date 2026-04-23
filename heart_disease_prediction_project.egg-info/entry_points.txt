@@ -1,0 +1,2 @@
+[console_scripts]
+heart-disease-app = app:main
