@@ -2,8 +2,19 @@ import os
 import pandas as pd
 
 
-DATA_PATH = "data/heart.csv"
-TARGET_COL = "HeartDisease"
+# ── Change this to switch datasets ──────────────
+# Options: "cleveland", "kaggle", "framingham"
+DATASET = "cleveland"
+# ────────────────────────────────────────────────
+ 
+DATASET_FILES = {
+    "cleveland":  "data/cleveland_processed.csv",
+    "kaggle":     "data/kaggle_processed.csv",
+    "framingham": "data/framingham_processed.csv",
+}
+ 
+DATA_PATH  = DATASET_FILES[DATASET]
+TARGET_COL = "target"
 
 
 def load_dataset():
