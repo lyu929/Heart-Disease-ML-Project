@@ -123,6 +123,7 @@ if TORCH_AVAILABLE:
 
             for _ in range(self.epochs):
                 epoch_loss = 0.0
+
                 for xb, yb in loader:
                     optimizer.zero_grad()
                     logits = self.model(xb)
@@ -137,10 +138,12 @@ if TORCH_AVAILABLE:
 
         def predict_proba(self, X):
             self.model.eval()
+
             with torch.no_grad():
                 X_tensor = torch.tensor(X, dtype=torch.float32)
                 logits = self.model(X_tensor)
                 probs = torch.sigmoid(logits).cpu().numpy()
+
             return probs
 
 
@@ -188,19 +191,34 @@ def build_estimators(scale_pos_weight):
             tree_method="hist",
             verbosity=0
         )
+
         estimators["XGBoost"] = xgboost
         estimators["Domain-Weighted XGBoost"] = deepcopy(xgboost)
 
     return estimators
 
 
+# =========================
+# Training helpers
+# =========================
 def fit_and_evaluate_pipeline(pipeline, X_train, y_train, X_test, y_test):
     pipeline.fit(X_train, y_train)
+
     y_prob = pipeline.predict_proba(X_test)[:, 1]
 
-    threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-    metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
-    return pipeline, metrics
+    threshold, _ = find_best_threshold(
+        y_test.to_numpy(),
+        y_prob,
+        optimize_for="F1"
+    )
+
+    metrics = compute_metrics(
+        y_test.to_numpy(),
+        y_prob,
+        threshold=threshold
+    )
+
+    return pipeline, metrics, y_prob
 
 
 def fit_tuned_random_forest(X_train, y_train):
@@ -209,7 +227,14 @@ def fit_tuned_random_forest(X_train, y_train):
     pipeline = ImbPipeline(
         steps=[
             ("preprocessor", preprocessor),
-            ("model", RandomForestClassifier(class_weight="balanced", random_state=42, n_jobs=1)),
+            (
+                "model",
+                RandomForestClassifier(
+                    class_weight="balanced",
+                    random_state=42,
+                    n_jobs=1
+                )
+            ),
         ]
     )
 
@@ -225,43 +250,57 @@ def fit_tuned_random_forest(X_train, y_train):
         n_jobs=1,
         error_score="raise"
     )
+
     grid.fit(X_train, y_train)
+
     return grid.best_estimator_, grid.best_params_
 
 
 def fit_smote_rf(X_train, y_train):
     preprocessor, _, _ = build_preprocessor(X_train)
+
     pipeline = ImbPipeline(
         steps=[
             ("preprocessor", preprocessor),
             ("smote", SMOTE(random_state=42)),
-            ("model", RandomForestClassifier(
-                n_estimators=200,
-                class_weight="balanced",
-                random_state=42,
-                n_jobs=1
-            )),
+            (
+                "model",
+                RandomForestClassifier(
+                    n_estimators=200,
+                    class_weight="balanced",
+                    random_state=42,
+                    n_jobs=1
+                )
+            ),
         ]
     )
+
     pipeline.fit(X_train, y_train)
+
     return pipeline
 
 
 def fit_adasyn_rf(X_train, y_train):
     preprocessor, _, _ = build_preprocessor(X_train)
+
     pipeline = ImbPipeline(
         steps=[
             ("preprocessor", preprocessor),
             ("adasyn", ADASYN(random_state=42)),
-            ("model", RandomForestClassifier(
-                n_estimators=200,
-                class_weight="balanced",
-                random_state=42,
-                n_jobs=1
-            )),
+            (
+                "model",
+                RandomForestClassifier(
+                    n_estimators=200,
+                    class_weight="balanced",
+                    random_state=42,
+                    n_jobs=1
+                )
+            ),
         ]
     )
+
     pipeline.fit(X_train, y_train)
+
     return pipeline
 
 
@@ -269,30 +308,43 @@ def fit_stacking_pipeline(X_train, y_train, scale_pos_weight):
     preprocessor, _, _ = build_preprocessor(X_train)
 
     stack_estimators = [
-        ("lr", LogisticRegression(max_iter=2000, class_weight="balanced", random_state=42)),
-        ("rf", RandomForestClassifier(
-            n_estimators=200,
-            class_weight="balanced",
-            random_state=42,
-            n_jobs=1
-        )),
+        (
+            "lr",
+            LogisticRegression(
+                max_iter=2000,
+                class_weight="balanced",
+                random_state=42
+            )
+        ),
+        (
+            "rf",
+            RandomForestClassifier(
+                n_estimators=200,
+                class_weight="balanced",
+                random_state=42,
+                n_jobs=1
+            )
+        ),
     ]
 
     if XGBOOST_AVAILABLE:
         stack_estimators.append(
-            ("xgb", XGBClassifier(
-                n_estimators=200,
-                max_depth=5,
-                learning_rate=0.05,
-                subsample=0.9,
-                colsample_bytree=0.9,
-                eval_metric="logloss",
-                scale_pos_weight=scale_pos_weight,
-                random_state=42,
-                n_jobs=1,
-                tree_method="hist",
-                verbosity=0
-            ))
+            (
+                "xgb",
+                XGBClassifier(
+                    n_estimators=200,
+                    max_depth=5,
+                    learning_rate=0.05,
+                    subsample=0.9,
+                    colsample_bytree=0.9,
+                    eval_metric="logloss",
+                    scale_pos_weight=scale_pos_weight,
+                    random_state=42,
+                    n_jobs=1,
+                    tree_method="hist",
+                    verbosity=0
+                )
+            )
         )
 
     stack = StackingClassifier(
@@ -309,7 +361,9 @@ def fit_stacking_pipeline(X_train, y_train, scale_pos_weight):
             ("model", stack),
         ]
     )
+
     pipeline.fit(X_train, y_train)
+
     return pipeline
 
 
@@ -322,14 +376,28 @@ def fit_dnn_pipeline(X_train, y_train, X_test, y_test):
     X_train_proc = safe_dense(X_train_proc)
     X_test_proc = safe_dense(X_test_proc)
 
-    dnn = DNNWrapper(input_dim=X_train_proc.shape[1], use_focal_loss=True)
+    dnn = DNNWrapper(
+        input_dim=X_train_proc.shape[1],
+        use_focal_loss=True
+    )
+
     dnn.fit(X_train_proc, y_train.to_numpy())
 
     y_prob = dnn.predict_proba(X_test_proc)
-    threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-    metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
 
-    return preprocessor, dnn, metrics
+    threshold, _ = find_best_threshold(
+        y_test.to_numpy(),
+        y_prob,
+        optimize_for="F1"
+    )
+
+    metrics = compute_metrics(
+        y_test.to_numpy(),
+        y_prob,
+        threshold=threshold
+    )
+
+    return preprocessor, dnn, metrics, y_prob
 
 
 # =========================
@@ -339,8 +407,10 @@ def train_model_suite(X_train, y_train, X_test, y_test):
     scale_pos_weight = compute_class_weight_scale(y_train)
 
     results = {}
+
     fitted_objects = {
         "errors": {},
+        "curve_data": {},
     }
 
     estimators = build_estimators(scale_pos_weight)
@@ -350,6 +420,7 @@ def train_model_suite(X_train, y_train, X_test, y_test):
 
         try:
             preprocessor, _, _ = build_preprocessor(X_train)
+
             pipeline = ImbPipeline(
                 steps=[
                     ("preprocessor", preprocessor),
@@ -357,66 +428,149 @@ def train_model_suite(X_train, y_train, X_test, y_test):
                 ]
             )
 
-            pipeline, metrics = fit_and_evaluate_pipeline(
-                pipeline, X_train, y_train, X_test, y_test
+            pipeline, metrics, y_prob = fit_and_evaluate_pipeline(
+                pipeline,
+                X_train,
+                y_train,
+                X_test,
+                y_test
             )
 
             results[model_name] = metrics
             fitted_objects[model_name] = pipeline
+
+            fitted_objects["curve_data"][model_name] = {
+                "y_true": y_test.to_numpy(),
+                "y_prob": y_prob,
+            }
 
         except Exception as e:
             print(f"Skipping {model_name} because of error: {e}")
             fitted_objects["errors"][model_name] = str(e)
 
     print("Training model: SMOTE Random Forest")
+
     try:
         smote_pipeline = fit_smote_rf(X_train, y_train)
         y_prob = smote_pipeline.predict_proba(X_test)[:, 1]
-        threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-        metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
+
+        threshold, _ = find_best_threshold(
+            y_test.to_numpy(),
+            y_prob,
+            optimize_for="F1"
+        )
+
+        metrics = compute_metrics(
+            y_test.to_numpy(),
+            y_prob,
+            threshold=threshold
+        )
 
         results["SMOTE Random Forest"] = metrics
         fitted_objects["SMOTE Random Forest"] = smote_pipeline
+
+        fitted_objects["curve_data"]["SMOTE Random Forest"] = {
+            "y_true": y_test.to_numpy(),
+            "y_prob": y_prob,
+        }
+
     except Exception as e:
         print(f"Skipping SMOTE Random Forest because of error: {e}")
         fitted_objects["errors"]["SMOTE Random Forest"] = str(e)
 
     print("Training model: ADASYN Random Forest")
+
     try:
         adasyn_pipeline = fit_adasyn_rf(X_train, y_train)
         y_prob = adasyn_pipeline.predict_proba(X_test)[:, 1]
-        threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-        metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
+
+        threshold, _ = find_best_threshold(
+            y_test.to_numpy(),
+            y_prob,
+            optimize_for="F1"
+        )
+
+        metrics = compute_metrics(
+            y_test.to_numpy(),
+            y_prob,
+            threshold=threshold
+        )
 
         results["ADASYN Random Forest"] = metrics
         fitted_objects["ADASYN Random Forest"] = adasyn_pipeline
+
+        fitted_objects["curve_data"]["ADASYN Random Forest"] = {
+            "y_true": y_test.to_numpy(),
+            "y_prob": y_prob,
+        }
+
     except Exception as e:
         print(f"Skipping ADASYN Random Forest because of error: {e}")
         fitted_objects["errors"]["ADASYN Random Forest"] = str(e)
 
     print("Training model: Stacking Ensemble")
+
     try:
-        stack_pipeline = fit_stacking_pipeline(X_train, y_train, scale_pos_weight)
+        stack_pipeline = fit_stacking_pipeline(
+            X_train,
+            y_train,
+            scale_pos_weight
+        )
+
         y_prob = stack_pipeline.predict_proba(X_test)[:, 1]
-        threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-        metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
+
+        threshold, _ = find_best_threshold(
+            y_test.to_numpy(),
+            y_prob,
+            optimize_for="F1"
+        )
+
+        metrics = compute_metrics(
+            y_test.to_numpy(),
+            y_prob,
+            threshold=threshold
+        )
 
         results["Stacking Ensemble"] = metrics
         fitted_objects["Stacking Ensemble"] = stack_pipeline
+
+        fitted_objects["curve_data"]["Stacking Ensemble"] = {
+            "y_true": y_test.to_numpy(),
+            "y_prob": y_prob,
+        }
+
     except Exception as e:
         print(f"Skipping Stacking Ensemble because of error: {e}")
         fitted_objects["errors"]["Stacking Ensemble"] = str(e)
 
     print("Training model: Tuned Random Forest")
+
     try:
         tuned_rf, best_params = fit_tuned_random_forest(X_train, y_train)
+
         y_prob = tuned_rf.predict_proba(X_test)[:, 1]
-        threshold, _ = find_best_threshold(y_test.to_numpy(), y_prob, optimize_for="F1")
-        metrics = compute_metrics(y_test.to_numpy(), y_prob, threshold=threshold)
+
+        threshold, _ = find_best_threshold(
+            y_test.to_numpy(),
+            y_prob,
+            optimize_for="F1"
+        )
+
+        metrics = compute_metrics(
+            y_test.to_numpy(),
+            y_prob,
+            threshold=threshold
+        )
 
         results["Tuned Random Forest"] = metrics
         fitted_objects["Tuned Random Forest"] = tuned_rf
         fitted_objects["best_rf_params"] = best_params
+
+        fitted_objects["curve_data"]["Tuned Random Forest"] = {
+            "y_true": y_test.to_numpy(),
+            "y_prob": y_prob,
+        }
+
     except Exception as e:
         print(f"Skipping Tuned Random Forest because of error: {e}")
         fitted_objects["errors"]["Tuned Random Forest"] = str(e)
@@ -424,12 +578,25 @@ def train_model_suite(X_train, y_train, X_test, y_test):
 
     if TORCH_AVAILABLE:
         print("Training model: Neural Network")
+
         try:
-            dnn_preprocessor, dnn_model, dnn_metrics = fit_dnn_pipeline(X_train, y_train, X_test, y_test)
+            dnn_preprocessor, dnn_model, dnn_metrics, y_prob = fit_dnn_pipeline(
+                X_train,
+                y_train,
+                X_test,
+                y_test
+            )
+
             results["Neural Network"] = dnn_metrics
             fitted_objects["Neural Network"] = dnn_model
             fitted_objects["Neural Network Preprocessor"] = dnn_preprocessor
             fitted_objects["dnn_loss_history"] = dnn_model.loss_history_
+
+            fitted_objects["curve_data"]["Neural Network"] = {
+                "y_true": y_test.to_numpy(),
+                "y_prob": y_prob,
+            }
+
         except Exception as e:
             print(f"Skipping Neural Network because of error: {e}")
             fitted_objects["errors"]["Neural Network"] = str(e)
@@ -443,9 +610,16 @@ def train_model_suite(X_train, y_train, X_test, y_test):
 def run_single_dataset_cv(df):
     rows = []
 
+    all_curve_data = {}
+
     X, y = split_features_target(df, "HeartDisease")
 
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    skf = StratifiedKFold(
+        n_splits=5,
+        shuffle=True,
+        random_state=42
+    )
+
     last_fitted = None
 
     for fold_idx, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
@@ -456,7 +630,13 @@ def run_single_dataset_cv(df):
         y_train = y.iloc[train_idx].copy()
         y_test = y.iloc[test_idx].copy()
 
-        results, fitted = train_model_suite(X_train, y_train, X_test, y_test)
+        results, fitted = train_model_suite(
+            X_train,
+            y_train,
+            X_test,
+            y_test
+        )
+
         last_fitted = fitted
 
         for model_name, metrics in results.items():
@@ -468,8 +648,26 @@ def run_single_dataset_cv(df):
                 "TestSource": "heart",
                 "Model": model_name,
             }
+
             row.update(metrics)
             rows.append(row)
+
+        fold_curve_data = fitted.get("curve_data", {})
+
+        for model_name, data in fold_curve_data.items():
+            if model_name not in all_curve_data:
+                all_curve_data[model_name] = {
+                    "y_true": [],
+                    "y_prob": [],
+                }
+
+            all_curve_data[model_name]["y_true"].extend(data["y_true"])
+            all_curve_data[model_name]["y_prob"].extend(data["y_prob"])
+
+    if last_fitted is None:
+        last_fitted = {}
+
+    last_fitted["curve_data"] = all_curve_data
 
     return pd.DataFrame(rows), last_fitted
 
@@ -483,6 +681,7 @@ def train_deployment_models(df):
     _, fitted = train_model_suite(X, y, X, y)
 
     feature_info = []
+
     for col in X.columns:
         col_series = X[col]
 
@@ -493,19 +692,24 @@ def train_deployment_models(df):
             max_value = float(col_series.max())
         else:
             feature_type = "categorical"
-            unique_values = sorted([str(v) for v in col_series.dropna().unique().tolist()])
+            unique_values = sorted(
+                [str(v) for v in col_series.dropna().unique().tolist()]
+            )
             min_value = None
             max_value = None
 
-        feature_info.append({
-            "name": col,
-            "type": feature_type,
-            "unique_values": unique_values,
-            "min": min_value,
-            "max": max_value,
-        })
+        feature_info.append(
+            {
+                "name": col,
+                "type": feature_type,
+                "unique_values": unique_values,
+                "min": min_value,
+                "max": max_value,
+            }
+        )
 
     advisor_models = {}
+
     for key in [
         "Logistic Regression",
         "Random Forest",
@@ -524,17 +728,35 @@ def train_deployment_models(df):
         "models": advisor_models,
     }
 
-    joblib.dump(advisor_bundle, os.path.join(MODELS_DIR, "advisor_bundle.pkl"))
+    joblib.dump(
+        advisor_bundle,
+        os.path.join(MODELS_DIR, "advisor_bundle.pkl")
+    )
 
     # Save standalone model files too
     if "Random Forest" in fitted:
-        joblib.dump(fitted["Random Forest"], os.path.join(MODELS_DIR, "rf_model.pkl"))
+        joblib.dump(
+            fitted["Random Forest"],
+            os.path.join(MODELS_DIR, "rf_model.pkl")
+        )
+
     if "Tuned Random Forest" in fitted:
-        joblib.dump(fitted["Tuned Random Forest"], os.path.join(MODELS_DIR, "tuned_rf_model.pkl"))
+        joblib.dump(
+            fitted["Tuned Random Forest"],
+            os.path.join(MODELS_DIR, "tuned_rf_model.pkl")
+        )
+
     if "XGBoost" in fitted:
-        joblib.dump(fitted["XGBoost"], os.path.join(MODELS_DIR, "xgb_model.pkl"))
+        joblib.dump(
+            fitted["XGBoost"],
+            os.path.join(MODELS_DIR, "xgb_model.pkl")
+        )
+
     if "MLP Classifier" in fitted:
-        joblib.dump(fitted["MLP Classifier"], os.path.join(MODELS_DIR, "mlp_model.pkl"))
+        joblib.dump(
+            fitted["MLP Classifier"],
+            os.path.join(MODELS_DIR, "mlp_model.pkl")
+        )
 
     return fitted
 
@@ -543,7 +765,7 @@ def train_deployment_models(df):
 # Full pipeline
 # =========================
 def train_full_project_pipeline(df):
-    experiment_df, _ = run_single_dataset_cv(df)
+    experiment_df, cv_fitted = run_single_dataset_cv(df)
 
     if experiment_df.empty:
         raise ValueError(
@@ -552,15 +774,31 @@ def train_full_project_pipeline(df):
 
     summary_df = (
         experiment_df.groupby(["Experiment", "Model"])[
-            ["Accuracy", "Precision", "Recall", "F1", "PR_AUC", "ROC_AUC", "Brier", "ECE"]
+            [
+                "Accuracy",
+                "Precision",
+                "Recall",
+                "F1",
+                "PR_AUC",
+                "ROC_AUC",
+                "Brier",
+                "ECE",
+            ]
         ]
         .mean()
         .reset_index()
         .sort_values(by=["F1"], ascending=False)
     )
 
-    experiment_df.to_csv(os.path.join(OUTPUTS_DIR, "experiment_results.csv"), index=False)
-    summary_df.to_csv(os.path.join(OUTPUTS_DIR, "summary_results.csv"), index=False)
+    experiment_df.to_csv(
+        os.path.join(OUTPUTS_DIR, "experiment_results.csv"),
+        index=False
+    )
+
+    summary_df.to_csv(
+        os.path.join(OUTPUTS_DIR, "summary_results.csv"),
+        index=False
+    )
 
     deployment_fitted = train_deployment_models(df)
 
@@ -571,6 +809,7 @@ def train_full_project_pipeline(df):
         "best_rf_params": deployment_fitted.get("best_rf_params", {}),
         "dnn_loss_history": deployment_fitted.get("dnn_loss_history", []),
         "errors": deployment_fitted.get("errors", {}),
+        "curve_data": cv_fitted.get("curve_data", {}),
     }
 
     return summary_df, artifacts
