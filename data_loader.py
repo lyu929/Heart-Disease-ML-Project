@@ -1,27 +1,45 @@
-import os
 import pandas as pd
+from pathlib import Path
 
 
 # ── Change this to switch datasets ──────────────
-# Options: "cleveland", "kaggle", "framingham"
-DATASET = "cleveland"
+# Options: "heart", "cleveland", "kaggle", "framingham"
+DATASET = "heart"
 # ────────────────────────────────────────────────
- 
+
+PROJECT_DIR = Path(__file__).resolve().parent
+
 DATASET_FILES = {
+    "heart":      "data/heart.csv",
     "cleveland":  "data/cleveland_processed.csv",
     "kaggle":     "data/kaggle_processed.csv",
     "framingham": "data/framingham_processed.csv",
 }
- 
-DATA_PATH  = DATASET_FILES[DATASET]
-TARGET_COL = "target"
+
+TARGET_COLUMNS = {
+    "heart": "HeartDisease",
+    "cleveland": "target",
+    "kaggle": "target",
+    "framingham": "target",
+}
+
+DATA_PATH = PROJECT_DIR / DATASET_FILES[DATASET]
+TARGET_COL = TARGET_COLUMNS[DATASET]
+
+
+def get_dataset_name():
+    return DATASET
+
+
+def get_target_column():
+    return TARGET_COL
 
 
 def load_dataset():
-    if not os.path.exists(DATA_PATH):
+    if not DATA_PATH.exists():
         raise FileNotFoundError(
             f"Dataset not found: {DATA_PATH}\n"
-            f"Please put heart.csv into the data/ folder."
+            f"Please put the selected dataset file into the data/ folder."
         )
 
     df = pd.read_csv(DATA_PATH)

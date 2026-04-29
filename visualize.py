@@ -1,5 +1,17 @@
 import os
+from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parent
+CACHE_DIR = PROJECT_DIR / "outputs" / ".cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("MPLCONFIGDIR", str(CACHE_DIR / "matplotlib"))
+os.environ.setdefault("XDG_CACHE_HOME", str(CACHE_DIR / "xdg"))
+
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import (
@@ -67,17 +79,14 @@ def save_dnn_loss(loss_history):
 
 def save_degradation_plot(summary_df):
     if summary_df is None or summary_df.empty:
-        print("Skipping degradation plot: empty summary results.")
         return
 
     if "F1_Degradation_%" not in summary_df.columns:
-        print("Skipping degradation plot: F1_Degradation_% column not found.")
         return
 
     df = summary_df.dropna(subset=["F1_Degradation_%"]).copy()
 
     if df.empty:
-        print("Skipping degradation plot: no degradation values.")
         return
 
     plt.figure(figsize=(12, 6))

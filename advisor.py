@@ -13,7 +13,6 @@ MODEL_MAP = {
     "4": "MLP Classifier",
     "5": "Stacking Ensemble",
     "6": "XGBoost",
-    "7": "Domain-Weighted XGBoost",
 }
 
 FEATURE_HINTS = {

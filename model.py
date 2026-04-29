@@ -1,5 +1,6 @@
 import os
-from copy import deepcopy
+
+os.environ.setdefault("LOKY_MAX_CPU_COUNT", "1")
 
 import joblib
 import numpy as np
@@ -20,6 +21,7 @@ from preprocess import (
     safe_dense,
 )
 from evaluate import compute_metrics, find_best_threshold
+from data_loader import get_dataset_name, get_target_column
 
 
 OUTPUTS_DIR = "outputs"
@@ -193,7 +195,6 @@ def build_estimators(scale_pos_weight):
         )
 
         estimators["XGBoost"] = xgboost
-        estimators["Domain-Weighted XGBoost"] = deepcopy(xgboost)
 
     return estimators
 
@@ -612,7 +613,9 @@ def run_single_dataset_cv(df):
 
     all_curve_data = {}
 
-    X, y = split_features_target(df, "HeartDisease")
+    dataset_name = get_dataset_name()
+    target_col = get_target_column()
+    X, y = split_features_target(df, target_col)
 
     skf = StratifiedKFold(
         n_splits=5,
@@ -642,10 +645,10 @@ def run_single_dataset_cv(df):
         for model_name, metrics in results.items():
             row = {
                 "Experiment": "Within-Dataset CV",
-                "Dataset": "heart",
+                "Dataset": dataset_name,
                 "Fold": fold_idx,
-                "TrainSource": "heart",
-                "TestSource": "heart",
+                "TrainSource": dataset_name,
+                "TestSource": dataset_name,
                 "Model": model_name,
             }
 
@@ -676,7 +679,7 @@ def run_single_dataset_cv(df):
 # Deployment models for advisor
 # =========================
 def train_deployment_models(df):
-    X, y = split_features_target(df, "HeartDisease")
+    X, y = split_features_target(df, get_target_column())
 
     _, fitted = train_model_suite(X, y, X, y)
 
@@ -717,7 +720,6 @@ def train_deployment_models(df):
         "MLP Classifier",
         "Stacking Ensemble",
         "XGBoost",
-        "Domain-Weighted XGBoost",
     ]:
         if key in fitted:
             advisor_models[key] = fitted[key]
@@ -781,6 +783,7 @@ def train_full_project_pipeline(df):
                 "F1",
                 "PR_AUC",
                 "ROC_AUC",
+                "MSE",
                 "Brier",
                 "ECE",
             ]

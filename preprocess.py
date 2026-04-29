@@ -8,8 +8,24 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 
-def split_features_target(df, target_col="HeartDisease"):
-    X = df.drop(columns=[target_col]).copy()
+def split_features_target(df, target_col=None, drop_columns=("dataset_source",)):
+    if target_col is None:
+        candidates = ["HeartDisease", "target"]
+        matches = [col for col in candidates if col in df.columns]
+
+        if not matches:
+            raise ValueError(
+                "Target column not found. Expected one of: "
+                f"{', '.join(candidates)}"
+            )
+
+        target_col = matches[0]
+
+    if target_col not in df.columns:
+        raise ValueError(f"Target column '{target_col}' not found in dataset.")
+
+    ignored_cols = [col for col in drop_columns if col in df.columns]
+    X = df.drop(columns=[target_col] + ignored_cols).copy()
     y = df[target_col].astype(int).copy()
     return X, y
 
@@ -21,11 +37,11 @@ def build_preprocessor(X):
     Categorical columns -> most_frequent imputation + one-hot encoding
     """
 
-    # 明确按 pandas dtype 分列
+
     categorical_cols = X.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
     numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
 
-    # 双重保险：如果某列虽然没被识别成 object，但里面其实是字符串，也归到 categorical
+
     for col in X.columns:
         if col not in categorical_cols and col not in numeric_cols:
             categorical_cols.append(col)

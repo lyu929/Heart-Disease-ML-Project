@@ -4,7 +4,7 @@
 
 ## 1. Project Overview
 
-This project focuses on heart disease prediction using machine learning, with an emphasis on robustness, model comparison, and real-world usability through an interactive advisor system.
+This project focuses on heart disease prediction using machine learning, with an emphasis on model comparison, class-imbalance robustness, and real-world usability through an interactive advisor system.
 
 The system includes:
 
@@ -13,6 +13,8 @@ The system includes:
 - Cross-validation based evaluation
 - Deployment-ready prediction interface
 - Interactive patient risk advisor
+
+The default demo uses `data/heart.csv` and within-dataset 5-fold cross-validation. Additional processed datasets are included for extension work, but they are not mixed into the default advisor workflow.
 
 ---
 
@@ -41,7 +43,6 @@ The system includes:
 
 - SMOTE Random Forest
 - ADASYN Random Forest
-- Domain-Weighted XGBoost
 - Stacking Ensemble
 
 ---
@@ -66,8 +67,10 @@ The project evaluates models using:
     Heart_Disease_Project/
     ├── app.py
     ├── advisor.py
+    ├── additional_experiments.py
     ├── data_loader.py
     ├── evaluate.py
+    ├── flowchart.py
     ├── model.py
     ├── preprocess.py
     ├── visualize.py
@@ -178,6 +181,14 @@ Main output files:
 
     outputs/experiment_results.csv
     outputs/summary_results.csv
+    outputs/f1_comparison.png
+    outputs/recall_comparison.png
+    outputs/roc_curve_comparison.png
+    outputs/pr_curve_comparison.png
+    outputs/ece_comparison.png
+    outputs/dnn_loss_curve.png
+    outputs/dataset_comparison_results.csv
+    outputs/rf_parameter_comparison.csv
     models/advisor_bundle.pkl
     models/rf_model.pkl
     models/tuned_rf_model.pkl
@@ -202,7 +213,6 @@ Available model choices may include:
     4 - MLP Classifier
     5 - Stacking Ensemble
     6 - XGBoost
-    7 - Domain-Weighted XGBoost
 
 Example patient input:
 
@@ -325,6 +335,14 @@ Run the project:
 
     python app.py
 
+Run additional report experiments:
+
+    python additional_experiments.py
+
+Generate the system flowchart:
+
+    python flowchart.py
+
 Install command-line app:
 
     python setup.py install
@@ -342,6 +360,7 @@ Run installed app:
 - SMOTE and ADASYN support
 - XGBoost and neural network support
 - Stacking ensemble
+- Dataset comparison and Random Forest parameter comparison experiments
 - Interactive advisor system
 - Real-time patient prediction
 - Saved prediction history
@@ -354,4 +373,4 @@ Machine Learning Final Project
 
 Heart Disease Prediction System
 
-Focus: robustness, model comparison, and deployment-ready advisor usage
+Focus: class-imbalance robustness, model comparison, and deployment-ready advisor usage

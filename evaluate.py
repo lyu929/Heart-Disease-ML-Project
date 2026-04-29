@@ -5,6 +5,7 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
+    mean_squared_error,
     roc_auc_score,
     average_precision_score,
     brier_score_loss,
@@ -40,6 +41,7 @@ def compute_metrics(y_true, y_prob, threshold=0.5):
         "F1": float(f1_score(y_true, y_pred, zero_division=0)),
         "PR_AUC": float(average_precision_score(y_true, y_prob)) if len(set(y_true)) > 1 else np.nan,
         "ROC_AUC": float(roc_auc_score(y_true, y_prob)) if len(set(y_true)) > 1 else np.nan,
+        "MSE": float(mean_squared_error(y_true, y_prob)),
         "Brier": float(brier_score_loss(y_true, y_prob)),
         "ECE": float(expected_calibration_error(y_true, y_prob)),
     }
