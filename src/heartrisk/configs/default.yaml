@@ -1,0 +1,55 @@
+# heartrisk default configuration. Override any key with --set key.sub=value on the CLI
+# or pass your own YAML with --config (it is merged over these defaults).
+
+seed: 42
+data_dir: data            # resolved relative to the working directory
+dataset: heart            # see heartrisk.data.DATASETS
+
+cleaning:
+  # Physiologically impossible zeros are missing values in the source data
+  # (the Switzerland cohort has no cholesterol measurements at all).
+  zero_as_missing: [Cholesterol, RestingBP]
+  missing_indicator: true # adds <col>_missing flags; see the ablation in the report
+
+evaluation:
+  repeats: 5              # repeated stratified K-fold (5x5 = 25 outer folds)
+  outer_splits: 5
+  inner_splits: 5         # used for out-of-fold threshold selection and tuning
+  tune: true              # inner-loop grid search (nested CV)
+  tune_scoring: neg_log_loss
+  threshold:
+    strategy: f1          # f1 | youden | sensitivity | fixed
+    target_sensitivity: 0.90
+    fixed: 0.5
+  bootstrap: 2000
+  models: [logreg, rf, xgb, hgb, mlp, stacking]
+  baseline: logreg        # reference model for the pairwise corrected t-tests
+
+benchmark:                # same protocol on every cohort (within-cohort CV)
+  datasets: [heart, cleveland, framingham]
+  models: [logreg, rf, xgb, smote_rf]
+  repeats: 3
+
+site_validation:          # leave-one-site-out on the four source hospitals of heart.csv
+  models: [logreg, rf, xgb]
+
+deploy:
+  model: logreg
+  calibration: none       # none | sigmoid | isotonic; the report shows LR does not need recalibration
+  missing_indicator: false  # the indicator mainly flags the Swiss cohort (93% prevalence): a shortcut
+  background_size: 32     # reference rows stored for Shapley explanations
+  risk_bands:             # upper bounds (exclusive) of predicted probability
+    - [0.10, low]
+    - [0.30, borderline]
+    - [0.60, elevated]
+    - [1.01, high]
+
+dnn:                      # optional PyTorch model (pip install heartrisk[torch])
+  hidden: [64, 32]
+  dropout: 0.2
+  epochs: 200
+  lr: 0.001
+  weight_decay: 0.0001
+  batch_size: 64
+  focal_gamma: 2.0
+  patience: 20

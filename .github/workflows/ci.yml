@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev,api]"
+      - name: Lint
+        run: ruff check . && ruff format --check .
+      - name: Unit tests
+        run: pytest -m "not slow" --cov=heartrisk --cov-report=term-missing
+
+  smoke-study:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev,api]"
+      - name: End-to-end study (quick settings)
+        run: heartrisk study --quick --out /tmp/reports --results /tmp/results --bundle /tmp/model.joblib
+      - name: Slow tests
+        run: pytest -m slow
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t heartrisk:ci .
+      - name: Smoke-test the API
+        run: |
+          docker run -d -p 8000:8000 --name api heartrisk:ci
+          for i in $(seq 1 30); do curl -sf localhost:8000/health && break; sleep 2; done
+          curl -sf -X POST localhost:8000/v1/predict -H 'content-type: application/json' \
+            -d '{"Age":54,"Sex":"M","ChestPainType":"ASY","RestingBP":140,"Cholesterol":239,"FastingBS":0,"RestingECG":"Normal","MaxHR":122,"ExerciseAngina":"Y","Oldpeak":1.5,"ST_Slope":"Flat"}'

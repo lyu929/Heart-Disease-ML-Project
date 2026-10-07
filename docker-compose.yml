@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    image: heartrisk:latest
+    ports: ["8000:8000"]
+  ui:
+    image: heartrisk:latest
+    depends_on: [api]
+    command: ["streamlit", "run", "app/streamlit_app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+    ports: ["8501:8501"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health')"]

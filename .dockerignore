@@ -1,0 +1,12 @@
+.git
+.github
+**/__pycache__
+*.egg-info
+.pytest_cache
+.ruff_cache
+results
+models
+reports
+legacy
+tests
+docs

@@ -1,0 +1,5 @@
+site,patients,prevalence,cholesterol_missing
+hungarian,293,0.36177474402730375,0.0
+switzerland,123,0.9349593495934959,1.0
+va_long_beach,200,0.745,0.245
+cleveland,302,0.45695364238410596,0.0

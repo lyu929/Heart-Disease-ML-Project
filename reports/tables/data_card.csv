@@ -1,0 +1,13 @@
+feature,type,missing,values
+Age,numeric,0,28 – 77 (median 54)
+RestingBP,numeric,1,80 – 200 (median 130)
+Cholesterol,numeric,172,85 – 603 (median 237)
+MaxHR,numeric,0,60 – 202 (median 138)
+Oldpeak,numeric,0,-2.6 – 6.2 (median 0.6)
+FastingBS,numeric,0,0 – 1 (median 0)
+Sex,categorical,0,"M (725), F (193)"
+ChestPainType,categorical,0,"ASY (496), NAP (203), ATA (173), TA (46)"
+RestingECG,categorical,0,"Normal (552), LVH (188), ST (178)"
+ExerciseAngina,categorical,0,"N (547), Y (371)"
+ST_Slope,categorical,0,"Flat (460), Up (395), Down (63)"
+HeartDisease,target,0,prevalence 0.553 (n=918)
