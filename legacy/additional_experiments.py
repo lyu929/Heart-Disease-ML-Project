@@ -21,7 +21,7 @@ from evaluate import compute_metrics
 from preprocess import build_preprocessor, compute_class_weight_scale, split_features_target
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent  # repository root (this file now lives in legacy/)
 OUTPUTS_DIR = PROJECT_DIR / "outputs"
 OUTPUTS_DIR.mkdir(exist_ok=True)
 

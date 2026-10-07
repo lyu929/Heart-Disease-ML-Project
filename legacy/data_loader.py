@@ -7,7 +7,7 @@ from pathlib import Path
 DATASET = "heart"
 # ────────────────────────────────────────────────
 
-PROJECT_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = Path(__file__).resolve().parent.parent  # repository root (this file now lives in legacy/)
 
 DATASET_FILES = {
     "heart":      "data/heart.csv",
